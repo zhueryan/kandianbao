@@ -7,6 +7,8 @@
  */
 
 namespace App\Console\Commands;
+use App\ConfigModel;
+use Carbon\Carbon;
 use Yangqi\Htmldom\Htmldom;
 
 trait KanDianBaoTrait{
@@ -27,5 +29,22 @@ trait KanDianBaoTrait{
             $result[]=$element->$sort;
         return $result;
     }
+    //获取配置表数据
+    public static function getConfig($config_type,$config_key){
+        return ConfigModel::whereConfigType($config_type)
+            ->whereConfigKey($config_key)->first();
+    }
+    //获取当前时间
+    public static function getNowTime(){
+        return Carbon::now()->toDateTimeString();
+    }
+    //获取当前日期
+    public static function getNowDate(){
+        return Carbon::now()->toDateString();
+    }
+
+
+
+
 
 }
