@@ -62,16 +62,14 @@ class KanDianBao extends Command
                 "account"=>"llc@jupin.net.cn",
                 "password"=>"jupin123",
                 "csrf_token"=> $authenticity_token,
+//                'headers'=>['referer'=>$login_url],
             ];  //登录信息
 
-        $response = $client->request('POST',
-            'https://my.dianshangyi.com/user/login/',[
-                'query'=>$payload,
-                'headers'=>['referer'=>$login_url],
-                ]
-
+        $login = $client->request('POST',
+            'https://my.dianshangyi.com/user/login/',
+            ['form_params' => $payload]
             );
-            dd($response);
+            dd($login);
 
         } else {
             return $this->error('打开登录页面失败');
