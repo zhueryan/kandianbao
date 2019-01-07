@@ -10,6 +10,11 @@ namespace App\Console\Commands;
 use App\ConfigModel;
 use Carbon\Carbon;
 use Yangqi\Htmldom\Htmldom;
+use GuzzleHttp\Client;
+use GuzzleHttp\Pool;
+use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Exception\ClientException;
+use Illuminate\Support\Facades\Log;
 
 trait KanDianBaoTrait{
 
@@ -41,6 +46,64 @@ trait KanDianBaoTrait{
     //获取当前日期
     public static function getNowDate(){
         return Carbon::now()->toDateString();
+    }
+
+
+    /**
+     * 发送请求
+     * https://guzzle-cn.readthedocs.io/zh_CN/latest/quickstart.html
+     *
+     * @param string $url
+     * @param array $params
+     * @param string $method
+     * @param array $configs
+     * @param string $contentType
+     * @return array
+     */
+    public static function request( $url,  $params = [],  $method = 'POST', array $configs =[],
+                                    $contentType='form_params')
+    {
+        $configs['timeout'] = array_get($configs, 'timeout', 5);
+        $client = new Client($configs);
+        $params = strtoupper($method) == 'GET' ? ['query' => $params] : [$contentType => $params];
+        Log::info("httpRequest send", ['url' => $url, 'params' => $params, 'method' => $method, 'configs' => $configs]);
+
+        try {
+            $request = $client->request($method, $url, $params);
+        } catch (RequestException $e) {
+            $errorCode = $e->getCode();
+            $errorMessage = $e->getMessage();
+
+            Log::info("httpRequest response error:", ['url' => $url, 'params' => $params, 'method' => $method,
+                'configs' => $configs, 'errorCode' => $errorCode, 'errorMessage' => $errorMessage]);
+
+            return [
+                'success' => false,
+                'errorCode' => $errorCode,
+                'errorMessage' => $errorMessage,
+            ];
+        }
+
+        $httpCode = $request->getStatusCode();
+        $return   = $request->getBody()->getContents();
+        $response = json_decode($return, true);
+        $success  = $httpCode == 200 ? 'success' : 'error';
+
+        Log::info("httpRequest response $success:", ['url' => $url, 'params' => $params, 'method' => $method,
+            'configs' => $configs, 'httpCode' => $httpCode, 'response' => $response]);
+
+        if($httpCode != 200) {
+            return [
+                'success' => false,
+                'errorCode' => $httpCode,
+                'errorMessage' => '',
+            ];
+        }
+
+        return [
+            'success' => true,
+            'data' => $response
+        ];
     }
 
 
