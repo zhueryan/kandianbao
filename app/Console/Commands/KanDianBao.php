@@ -3,9 +3,15 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use GuzzleHttp\Client;
+use GuzzleHttp\Pool;
+use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Exception\ClientException;
+use Yangqi\Htmldom\Htmldom;
 
 class KanDianBao extends Command
 {
+    use KanDianBaoTrait;
     /**
      * The name and signature of the console command.
      *
@@ -37,6 +43,40 @@ class KanDianBao extends Command
      */
     public function handle()
     {
-	dd('Hello　看店宝');
+        echo "开始抓取看店宝。。。\n";
+
+        //请求登录地址
+        $login_url ='https://my.dianshangyi.com/user/oauth/authorize?response_type=code&client_id=60c8f95b218af67f1eaf7664ef85a533&state=N4FUgJ&redirect_uri=https://www.kandianbao.com/oauth/dsy/callback/&scope=me&next=https://www.kandianbao.com/';
+        //请求参数
+        $client = new Client(['cookies'=>true]);
+        //请求页面
+        $response = $client->request('GET', $login_url, [
+//            'query' => $query,
+        ]);
+        //如果请求成功
+        if (200 == $response->getStatusCode()) {
+            $strBody = (string)($response->getBody());  //获取页面内容
+            $inputs = self::strSimpleSingleHtml($strBody,'input','value');  //获取所有input元素的内容
+            $authenticity_token = $inputs[1]; //获取到登录页面提交时隐藏的token
+            $payload =[
+                "account"=>"llc@jupin.net.cn",
+                "password"=>"jupin123",
+                "csrf_token"=> $authenticity_token,
+            ];  //登录信息
+
+        $response = $client->request('POST',
+            'https://my.dianshangyi.com/user/login/',[
+                'query'=>$payload,
+                'headers'=>['referer'=>$login_url],
+                ]
+
+            );
+            dd($response);
+
+        } else {
+            return $this->error('打开登录页面失败');
+        }
+
+
     }
 }
