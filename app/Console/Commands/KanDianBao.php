@@ -38,8 +38,11 @@ class KanDianBao extends Command
     private $retries_count = 0;
     //每天爬取的关键词个数
     private $keyword_num = 0;
+    //每个关键词抓取的数据条数　从配置取
+    private $keyword_catch_num = 600; //默认每个关键词抓取600条数据
     private $keywords = null;
-    private  $user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36';
+    private $user_agent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36';
+
     /**
      * Create a new command instance.
      *
@@ -50,7 +53,8 @@ class KanDianBao extends Command
         parent::__construct();
         $this->upper_limit = self::getConfig('kandianbao', 'upper_limit')->config_value ?: 600;
         $this->designArea = self::getConfig('kandianbao', 'area')->config_value;
-        list($this->keywords,$this->keyword_num) = self::get_keyword_num();
+        list($this->keywords, $this->keyword_num) = self::get_keyword_num();
+        $this->keyword_catch_num = self::getConfig('kandianbao','keyword_catch_num')->config_value;
     }
 
 
@@ -61,17 +65,26 @@ class KanDianBao extends Command
      */
     public function handle()
     {
-        echo "开始抓取看店宝。。。\n";
+        echo "看店宝爬虫开始。。。\n";
 
         #请求参数
         $client = new Client(['cookies' => true, 'headers' => ['User-Agent' => $this->user_agent,]]);
+        echo "登录看店宝。。。\n";
         $this->login($client);  //登录看店宝
-        $this->start($client,'STAPP'); //爬取数据
 
+        //抓取类型　STAPP 手淘APP　
+        $grasp_type  = self::getConfig('kandianbao', 'grasp_type')->config_value ;
+        $grasp = explode(',',$grasp_type);
+        if (in_array('STAPP',$grasp)) {
+            echo "开始爬取手淘APP数据\n";
+            $this->start_stapp($client); //爬取手淘APP数据
+        }
 
     }
+
     //登录看店宝
-    private function login($client){
+    private function login($client)
+    {
 #请求登录地址
         $login_url = 'https://my.dianshangyi.com/user/oauth/authorize?response_type=code&client_id=60c8f95b218af67f1eaf7664ef85a533&state=N4FUgJ&redirect_uri=https://www.kandianbao.com/oauth/dsy/callback/&scope=me&next=https://www.kandianbao.com/';
 
@@ -120,35 +133,25 @@ class KanDianBao extends Command
         );
     }
 
-    #开始爬取数据 传参抓取方式
-    public function start($get_type='STAPP')
+    #开始爬取手淘APP数据
+    public function start_stapp()
     {
+        $num_end =(int) ((int)$this->keyword_catch_num / 10) ;#批量采集 采集多少页
 
-        foreach ($this->keywords as $keyword) {
-            DB::transaction(function () use ($keyword) {
-                Keywords::whereId($keyword->id)->update(['state'=>1]);
+        foreach ($this->keywords as $keywords) {
+            $keyword = urlencode($keywords->keyword);
+            $mail_url = "https://so.kandianbao.com/app/{$keyword}/{$num_end}/";
+            #请求关键词搜索结果
+
+
+            $url ="https://api.kandianbao.com/item-over/{$keyword}/5c344e8e347fea2c7eb6f9df/0/?callback=over&_=1546931855313";
+            DB::transaction(function () use ($keywords) {
+
                 # 每用一个关键词，把这个词的状态改成1，视为已经用过
-                $this->keyword_num += 1;  #本次采集的关键词个数
-                if ($keyword->state == 2) {
-                    #分地域采集
-                    $num_end = 3;
-                    $designAreaList = explode(',', $this->designArea);
-                    $designAreaLen =count($designAreaList);
-                    $num_end = ($num_end - 1) * $designAreaLen + 1;  #根据地域的不同 决定抓取的页数
-                    $area = $this->designArea;
-                } else {
-                    $num_end = 11;#批量采集
-                    $area = '';
-                }
-                if ($num_end > 11)
-                    $num_end = 11;
-                foreach (range(1, $num_end) as $num) {# 每个关键词找10页（600个，理论上 每天只抓取一个关键词）
-                    # 返回false说明关键词查不到店铺，直接break
-
-                }
-
+                Keywords::whereId($keywords->id)->update(['state' => 1]);
 
             });
+
         }
 
     }
