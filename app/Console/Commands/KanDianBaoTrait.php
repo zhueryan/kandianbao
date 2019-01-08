@@ -11,6 +11,7 @@ namespace App\Console\Commands;
 use App\ConfigModel;
 use App\Keywords;
 use Carbon\Carbon;
+use GuzzleHttp\Cookie\CookieJar;
 use Yangqi\Htmldom\Htmldom;
 use GuzzleHttp\Client;
 use GuzzleHttp\Pool;
@@ -69,6 +70,14 @@ trait KanDianBaoTrait
             ->get(),$limit];
     }
 
+
+    public static function setCookie($client){
+        $config = $client->getConfig();
+        $cookie = $config['cookies']->toArray()[0];
+        return CookieJar::fromArray([
+            $cookie['Name'] => $cookie['Value'],
+        ], $cookie['Domain']);
+    }
     /**
      * 发送请求
      * https://guzzle-cn.readthedocs.io/zh_CN/latest/quickstart.html
