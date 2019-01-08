@@ -6,12 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class Keywords extends Model
 {
-    protected $table='keywords';
+    protected $table = 'keywords';
 
-    protected $fillable=[
+    protected $fillable = [
         'keyword',
         'state',
     ];
 
-    protected $guarded=[];
+    protected $guarded = [];
+    public $timestamps = false;
 }
