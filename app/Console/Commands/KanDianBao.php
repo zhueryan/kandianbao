@@ -85,7 +85,6 @@ class KanDianBao extends Command
                 //如果是今天更新的cookie 取手动更新的cookie
                 $this->set_cookies($cookie->config_value);
 
-
             }else{
                 $this->login($client);  //登录看店宝
             }
@@ -93,8 +92,6 @@ class KanDianBao extends Command
             echo "未添加cookie配置项";
             $this->login($client);  //登录看店宝
         }
-
-
 
         //抓取类型　STAPP 手淘APP　
         $grasp_type  = self::getConfig('kandianbao', 'grasp_type')->config_value ;
@@ -161,7 +158,7 @@ class KanDianBao extends Command
 //            $handle=fopen("php://stdin", "r");
 //            $s=fgets($handle);
 //            $str = str_replace(array("\r\n", "\r", "\n"), "", $s)
-                die("登录失败　请手动更新cookie");
+                die("登录失败　请手动更新cookie\n");
             }
             if(strstr($response->getBody()->getContents(),'退出' )){
                 echo "电商易账号登录成功\n";
@@ -177,7 +174,10 @@ class KanDianBao extends Command
     }
 
     public function set_cookies($cookie){
-        $cookie = explode(';',$cookie->config_value);
+        ConfigModel::whereConfigType('kandianbao')
+            ->whereConfigKey('cookies')
+            ->update(['config_value'=>$cookie]);
+        $cookie = explode(';',$cookie);
         list($session,$session_value) = explode('=',$cookie[0]);
         $domain = explode('=',$cookie[1])[1];
         $this->cookieJar = CookieJar::fromArray([
@@ -262,6 +262,7 @@ class KanDianBao extends Command
                         $shops->shop_categroy = $tables2->children(2)->children(1)->plaintext;
 
                         $shops->save();
+                        Keywords::whereId($keywords->id)->update(['state' => 1]);
                         DB::commit();
                     }catch (Exception $e){
                         DB::rollBack();
