@@ -79,17 +79,12 @@ class KanDianBao extends Command
         );
         echo "登录看店宝。。。\n";
         //从数据库获取cookie
-        $cookie = self::getConfig('kandianbao','cookies')->config_value;
-
+        $cookie = self::getConfig('kandianbao','cookies');
         if($cookie){
             if(Carbon::now()->toDateString() == Carbon::parse($cookie->updated_at)->toDateString()){
                 //如果是今天更新的cookie 取手动更新的cookie
-                $cookie = explode(';',$cookie);
-                list($session,$session_value) = explode('=',$cookie[0]);
-                $domain = explode('=',$cookie[1])[1];
-                $this->cookieJar = CookieJar::fromArray([
-                    $session => $session_value,
-                ], $domain);
+                $this->set_cookies($cookie->config_value);
+
 
             }else{
                 $this->login($client);  //登录看店宝
@@ -151,6 +146,8 @@ class KanDianBao extends Command
                     ],
                 )
             );
+            //设置cookie
+            $this->set_cookies($response->getHeader('Set-cookie')[0]);
             if(strstr($response->getBody()->getContents(),'验证码' )){  //再次请求　手动输入验证码
                 //人工验证码
 //                echo "请输入验证码:\n";
@@ -179,6 +176,14 @@ class KanDianBao extends Command
         }
     }
 
+    public function set_cookies($cookie){
+        $cookie = explode(';',$cookie->config_value);
+        list($session,$session_value) = explode('=',$cookie[0]);
+        $domain = explode('=',$cookie[1])[1];
+        $this->cookieJar = CookieJar::fromArray([
+            $session => $session_value,
+        ], $domain);
+    }
     #开始爬取手淘APP数据
     public function start_stapp(Client $client)
     {
@@ -215,6 +220,7 @@ class KanDianBao extends Command
                         )
                     );
                     $content = $response->getBody()->getContents();
+
                     $tables = self::SimpleSingleHtml($content, 'table', 'table table-bordered text-center');  //获取第一个table元素的内容
                     $tables2 = self::SimpleSingleHtml($content, 'table', 'table table-bordered');  //获取第二个table元素的内容
                     $shops = new Shops;
