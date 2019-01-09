@@ -143,7 +143,7 @@ class KanDianBao extends Command
             );
             if(strstr($response->getBody()->getContents(),'验证码' )){  //再次请求　手动输入验证码
                 //人工验证码
-                echo "请输入验证码:\n";
+//                echo "请输入验证码:\n";
 //            $cap_url = 'https://my.kandianbao.com/validcode/captcha.gif';
 //            try {
 //                $data = $client->request('get',$cap_url)->getBody()->getContents();
@@ -154,7 +154,7 @@ class KanDianBao extends Command
 //            $handle=fopen("php://stdin", "r");
 //            $s=fgets($handle);
 //            $str = str_replace(array("\r\n", "\r", "\n"), "", $s)
-
+                die("登录失败　请手动更新cookie");
             }
             if(strstr($response->getBody()->getContents(),'退出' ))
                 echo "电商易账号登录成功\n";
@@ -176,6 +176,7 @@ class KanDianBao extends Command
 
         foreach ($this->keywords as $keywords) {
             echo "抓取关键词:{$keywords->keyword}  抓取前{$num_end}页  \n";
+            //关键词
             $keyword = urlencode($keywords->keyword);
             $main_url = "https://so.kandianbao.com/app/{$keyword}/{$num_end}/";
 //            $res= $client->get($main_url);
@@ -186,6 +187,10 @@ class KanDianBao extends Command
                 )
                 );
             $pids= self::strSimpleSingleHtml($res->getBody()->getContents(), 'tr', 'pid');  //获取所有tr pid元素的内容
+            if(count($pids) < 1){
+                echo "关键词:{$keywords->keyword} 没有搜索到数据\n\n";
+                continue;
+            }
             //循环爬取每家店铺的数据
             $i =1;
             foreach ($pids as $pid){
@@ -197,9 +202,35 @@ class KanDianBao extends Command
                             'cookies' => $this->cookieJar,
                         )
                     );
-                    $tables = self::strSimpleSingleHtml($response->getBody()->getContents(), 'table','table table-bordered text-center');  //获取所有table元素的内容
+                    $content = $response->getBody()->getContents();
+                    $tables = self::SimpleSingleHtml($content, 'table','table table-bordered text-center');  //获取第一个table元素的内容
+                    //序号
+                    $i;
+                    // 店铺logo
+                    $logo = (string)$tables->prev_sibling()->prev_sibling()->last_child()->first_child();
+                    //店铺类型
+                    $shop_type = $tables->children(0)->children(1)->innertext;
+                    //旺旺ID
+                    $nick =  $tables->children(2)->children(1)->first_child()->innertext;
+                    // 收藏数/店铺粉丝数
+                    $collection_num = $tables->children(0)->children(4)->innertext;
+                    //所在地
+                    $place =  $collection_num = $tables->children(0)->children(7)->innertext;
+                    //商品数  店铺宝贝数
+                    $goods_num = $collection_num = $tables->children(1)->children(5)->first_child()->innertext;
+                    //dsr
+                    $dsr = trim($collection_num = $tables->children(2)->children(5)->plaintext);
+                    //创店时间
+                    $shop_created_at =$collection_num = $tables->children(2)->children(3)->plaintext;
+                    //店铺链接
+                    $shop_url = $tables->children(2)->children(1)->first_child()->href;
+                    //好评率
 
-                    dd($tables);
+                    //信用等级
+
+                    //店铺类目
+
+                    dd($logo);
                     $i++;
                 }else{
                     continue;

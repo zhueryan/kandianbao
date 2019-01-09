@@ -60,9 +60,9 @@ trait KanDianBaoTrait
     {
         $html = new Htmldom($url);
         $result=[];
-        foreach($html->find($dom) as $element)
-            $result[]=$element->$sort;
-        return $result;
+        foreach($html->find($dom."[class={$sort}]") as $element)
+//            $result[]=$element;
+            return $element;
     }
 
     //获取配置表数据
