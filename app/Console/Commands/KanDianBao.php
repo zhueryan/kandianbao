@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\ConfigModel;
 use App\Keywords;
 use App\Shops;
+use Carbon\Carbon;
 use function foo\func;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Cookie\SetCookie;
@@ -55,8 +56,8 @@ class KanDianBao extends Command
     public function __construct()
     {
         parent::__construct();
-        $this->upper_limit = self::getConfig('kandianbao', 'upper_limit')->config_value ?: 600;
-        $this->designArea = self::getConfig('kandianbao', 'area')->config_value;
+//        $this->upper_limit = self::getConfig('kandianbao', 'upper_limit')->config_value ?: 600;
+//        $this->designArea = self::getConfig('kandianbao', 'area')->config_value;
         list($this->keywords, $this->keyword_num) = self::get_keyword_num();
         $this->keyword_catch_num = self::getConfig('kandianbao','keyword_catch_num')->config_value;
     }
@@ -77,21 +78,28 @@ class KanDianBao extends Command
             'Content-Type' => 'application/x-www-form-urlencoded; charset=UTF-8',]]
         );
         echo "登录看店宝。。。\n";
-//        $client = $this->login($client);  //登录看店宝 登录成功后讲client对象返回　否则请求数据时会是未登录状态
-
         //从数据库获取cookie
         $cookie = self::getConfig('kandianbao','cookies')->config_value;
-        if($cookie)
-            echo "获取cookie成功\n";
-        else
-            die("获取cookie失败 爬虫停止\n");
 
-        $cookie = explode(';',$cookie);
-        list($session,$session_value) = explode('=',$cookie[0]);
-        $domain = explode('=',$cookie[1])[1];
-        $this->cookieJar = CookieJar::fromArray([
-            $session => $session_value,
-        ], $domain);
+        if($cookie){
+            if(Carbon::now()->toDateString() == Carbon::parse($cookie->updated_at)->toDateString()){
+                //如果是今天更新的cookie 取手动更新的cookie
+                $cookie = explode(';',$cookie);
+                list($session,$session_value) = explode('=',$cookie[0]);
+                $domain = explode('=',$cookie[1])[1];
+                $this->cookieJar = CookieJar::fromArray([
+                    $session => $session_value,
+                ], $domain);
+
+            }else{
+                $this->login($client);  //登录看店宝
+            }
+        }else{
+            echo "未添加cookie配置项";
+            $this->login($client);  //登录看店宝
+        }
+
+
 
         //抓取类型　STAPP 手淘APP　
         $grasp_type  = self::getConfig('kandianbao', 'grasp_type')->config_value ;
@@ -158,8 +166,12 @@ class KanDianBao extends Command
 //            $str = str_replace(array("\r\n", "\r", "\n"), "", $s)
                 die("登录失败　请手动更新cookie");
             }
-            if(strstr($response->getBody()->getContents(),'退出' ))
+            if(strstr($response->getBody()->getContents(),'退出' )){
                 echo "电商易账号登录成功\n";
+                //更新cookie
+
+            }
+
 
             return $client;
         }catch (RequestException $e){
