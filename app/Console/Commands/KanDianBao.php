@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\ConfigModel;
 use App\Keywords;
+use App\Shops;
 use function foo\func;
 use GuzzleHttp\Cookie\CookieJar;
 use GuzzleHttp\Cookie\SetCookie;
@@ -14,6 +15,7 @@ use GuzzleHttp\Pool;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Support\Facades\Storage;
+use Mockery\Exception;
 use Yangqi\Htmldom\Htmldom;
 use Illuminate\Support\Facades\DB;
 
@@ -181,70 +183,85 @@ class KanDianBao extends Command
             $main_url = "https://so.kandianbao.com/app/{$keyword}/{$num_end}/";
 //            $res= $client->get($main_url);
             #请求关键词搜索结果
-            $res = $client->request('GET',$main_url,
+            $res = $client->request('GET', $main_url,
                 array(
                     'cookies' => $this->cookieJar,
                 )
-                );
-            $pids= self::strSimpleSingleHtml($res->getBody()->getContents(), 'tr', 'pid');  //获取所有tr pid元素的内容
-            if(count($pids) < 1){
+            );
+            $pids = self::strSimpleSingleHtml($res->getBody()->getContents(), 'tr', 'pid');  //获取所有tr pid元素的内容
+            if (count($pids) < 1) {
                 echo "关键词:{$keywords->keyword} 没有搜索到数据\n\n";
                 continue;
             }
             //循环爬取每家店铺的数据
-            $i =1;
-            foreach ($pids as $pid){
-                if($pid){
-                    echo "正在抓取第{$i}家店铺的数据。。。\n";
+            $num = 1;
+            $search = false;
+            foreach ($pids as $pid) {
+                if ($pid) {
+                    echo "正在抓取第{$num}家店铺的数据。。。\n";
+                    $search = true;
                     $url = "https://item.kandianbao.com/{$pid}/";
-                    $response = $client->request('GET',$url,
+                    $response = $client->request('GET', $url,
                         array(
                             'cookies' => $this->cookieJar,
                         )
                     );
                     $content = $response->getBody()->getContents();
-                    $tables = self::SimpleSingleHtml($content, 'table','table table-bordered text-center');  //获取第一个table元素的内容
-                    //序号
-                    $i;
-                    // 店铺logo
-                    $logo = (string)$tables->prev_sibling()->prev_sibling()->last_child()->first_child();
-                    //店铺类型
-                    $shop_type = $tables->children(0)->children(1)->innertext;
-                    //旺旺ID
-                    $nick =  $tables->children(2)->children(1)->first_child()->innertext;
-                    // 收藏数/店铺粉丝数
-                    $collection_num = $tables->children(0)->children(4)->innertext;
-                    //所在地
-                    $place =  $collection_num = $tables->children(0)->children(7)->innertext;
-                    //商品数  店铺宝贝数
-                    $goods_num = $collection_num = $tables->children(1)->children(5)->first_child()->innertext;
-                    //dsr
-                    $dsr = trim($collection_num = $tables->children(2)->children(5)->plaintext);
-                    //创店时间
-                    $shop_created_at =$collection_num = $tables->children(2)->children(3)->plaintext;
-                    //店铺链接
-                    $shop_url = $tables->children(2)->children(1)->first_child()->href;
-                    //好评率
+                    $tables = self::SimpleSingleHtml($content, 'table', 'table table-bordered text-center');  //获取第一个table元素的内容
+                    $tables2 = self::SimpleSingleHtml($content, 'table', 'table table-bordered');  //获取第二个table元素的内容
+                    $shops = new Shops;
+                    DB::beginTransaction();
+                    try{
+                        //序号
+                        $shops->num = $num;
+                        // 店铺logo
+                        $shops->logo = self::SimpleSingleHtml($content, 'div', 'info col-xs-10')->prev_sibling()->last_child()->last_child()->src;
+                        //店铺链接
+                        $shops->shop_url = $tables->children(2)->children(1)->first_child()->href;
+                        //旺旺ID
+                        $shops->nick = $tables->children(2)->children(1)->first_child()->innertext;
+                        //信用等级
+                        $shops->credit = $tables->children(1)->children(1)->children(0)->src;
+                        //店铺类型
+                        $shop_type = $tables->children(0)->children(1)->innertext;
+                        $shops->shop_type = $shop_type;
+                        //好评率
+                        $shops->feedback = '';
+                        if ("淘宝店铺" == $shop_type) {
+                            $shops->feedback = $tables->children(1)->children(3)->innertext;
+                        }
+                        //dsr
+                        $shops->dsr = trim($collection_num = $tables->children(2)->children(5)->plaintext);
+                        //所在地
+                        $shops->place = $collection_num = $tables->children(0)->children(7)->innertext;
+                        //商品数  店铺宝贝数
+                        $shops->goods_num = $collection_num = $tables->children(1)->children(5)->first_child()->innertext;
+                        //每月销售笔数
+                        $shops->goods_sales_month = $tables2->children(9)->children(1)->first_child()->innertext;
+                        //创店时间
+                        $shops->shop_created_at = $collection_num = $tables->children(2)->children(3)->plaintext;
+                        // 宝贝收藏数
+                        $shops->collection_num = $tables2->children(6)->children(1)->innertext;
+                        //关键词
+                        $shops->keyword = $keywords->keyword;
+                        //店铺类目
+                        $shops->shop_categroy = $tables2->children(2)->children(1)->plaintext;
 
-                    //信用等级
-
-                    //店铺类目
-
-                    dd($logo);
-                    $i++;
-                }else{
+                        $shops->save();
+                        DB::commit();
+                    }catch (Exception $e){
+                        DB::rollBack();
+                    }
+                    $num++;
+                } else {
+                    continue;
+                }
+                if(!$search){
+                    echo "关键词:{$keywords->keyword} 没有搜索到数据\n\n";
                     continue;
                 }
             }
-
-            DB::transaction(function () use ($keywords) {
-
-                # 每用一个关键词，把这个词的状态改成1，视为已经用过
-                Keywords::whereId($keywords->id)->update(['state' => 1]);
-
-            });
-
         }
-
+        echo "爬虫执行完毕\n";
     }
 }
