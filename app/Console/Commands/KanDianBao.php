@@ -75,7 +75,21 @@ class KanDianBao extends Command
             'Content-Type' => 'application/x-www-form-urlencoded; charset=UTF-8',]]
         );
         echo "登录看店宝。。。\n";
-        $client = $this->login($client);  //登录看店宝 登录成功后讲client对象返回　否则请求数据时会是未登录状态
+//        $client = $this->login($client);  //登录看店宝 登录成功后讲client对象返回　否则请求数据时会是未登录状态
+
+        //从数据库获取cookie
+        $cookie = self::getConfig('kandianbao','cookies')->config_value;
+        if($cookie)
+            echo "获取cookie成功\n";
+        else
+            die("获取cookie失败 爬虫停止\n");
+
+        $cookie = explode(';',$cookie);
+        list($session,$session_value) = explode('=',$cookie[0]);
+        $domain = explode('=',$cookie[1])[1];
+        $this->cookieJar = CookieJar::fromArray([
+            $session => $session_value,
+        ], $domain);
 
         //抓取类型　STAPP 手淘APP　
         $grasp_type  = self::getConfig('kandianbao', 'grasp_type')->config_value ;
@@ -107,12 +121,12 @@ class KanDianBao extends Command
         }
 
         // get cookie
-//        $this->cookieJar = self::setCookie($client);
+        $this->cookieJar = self::setCookie($client);
         $user = [
             "account" => "llc@jupin.net.cn",
             "password" => "jupin123",
             "csrf_token" => $authenticity_token,
-            "next"=>'https://www.kandianbao.com/',
+//            "next"=>'https://www.kandianbao.com/',
         ];  #登录信息
 
         $url = 'https://my.dianshangyi.com/user/login/';
@@ -120,7 +134,7 @@ class KanDianBao extends Command
         try{
             $response = $client->request('POST', $url ,
                 array(
-//                    'cookies' => $this->cookieJar,
+                    'cookies' => $this->cookieJar,
                     'form_params' => $user,
                     'headers' => [
                         'referer' => $login_url,
@@ -129,37 +143,21 @@ class KanDianBao extends Command
             );
             if(strstr($response->getBody()->getContents(),'验证码' )){  //再次请求　手动输入验证码
                 //人工验证码
-            $cap_url = 'https://my.kandianbao.com/validcode/captcha.gif';
-            try {
-                $data = $client->request('get',$cap_url)->getBody()->getContents();
-                Storage::disk('/home/hujiao/kandianbao/public/')->put('captcha.jpg', $data);
-            } catch (ClientException $e) {
-                return $this->error('fetch fail');
-            }
+                echo "请输入验证码:\n";
+//            $cap_url = 'https://my.kandianbao.com/validcode/captcha.gif';
+//            try {
+//                $data = $client->request('get',$cap_url)->getBody()->getContents();
+//                Storage::disk('/home/hujiao/kandianbao/public/')->put('captcha.jpg', $data);
+//            } catch (ClientException $e) {
+//                return $this->error('fetch fail');
+//            }
 //            $handle=fopen("php://stdin", "r");
 //            $s=fgets($handle);
 //            $str = str_replace(array("\r\n", "\r", "\n"), "", $s)
+
             }
-
-            echo "看店宝账号登录成功\n";
-//            $cookie = explode(';',$response->getHeader('Set-Cookie')[0]);
-//            list($session,$session_value) = explode('=',$cookie[0]);
-//            $domain = explode('=',$cookie[1])[1];
-//            $coookie = CookieJar::fromArray([
-//                $session => $session_value,
-//            ], $domain);
-            dd();
-
-            $main_url = "https://so.kandianbao.com/app/%E6%99%AE%E6%B4%B1%E8%8C%B6/1/";
-            $res = $client->request('GET',$main_url,
-                    [
-//                        'cookies'=>$this->cookieJar,
-                    ]
-            );
-
-            dd($res->getBody()->getContents());
-
-
+            if(strstr($response->getBody()->getContents(),'退出' ))
+                echo "电商易账号登录成功\n";
 
             return $client;
         }catch (RequestException $e){
@@ -177,19 +175,37 @@ class KanDianBao extends Command
         $num_end =(int) ((int)$this->keyword_catch_num / 10) ;#批量采集 采集多少页
 
         foreach ($this->keywords as $keywords) {
-            echo "抓取关键词:{$keywords->keyword}";
+            echo "抓取关键词:{$keywords->keyword}  抓取前{$num_end}页  \n";
             $keyword = urlencode($keywords->keyword);
             $main_url = "https://so.kandianbao.com/app/{$keyword}/{$num_end}/";
-            $res= $client->get($main_url);
-            dd($res->getBody()->getContents());
+//            $res= $client->get($main_url);
             #请求关键词搜索结果
             $res = $client->request('GET',$main_url,
                 array(
                     'cookies' => $this->cookieJar,
                 )
                 );
-            dd($res->getBody()->getContents());
-            $url ="https://api.kandianbao.com/item-over/{$keyword}/5c344e8e347fea2c7eb6f9df/0/?callback=over&_=1546931855313";
+            $pids= self::strSimpleSingleHtml($res->getBody()->getContents(), 'tr', 'pid');  //获取所有tr pid元素的内容
+            //循环爬取每家店铺的数据
+            $i =1;
+            foreach ($pids as $pid){
+                if($pid){
+                    echo "正在抓取第{$i}家店铺的数据。。。\n";
+                    $url = "https://item.kandianbao.com/{$pid}/";
+                    $response = $client->request('GET',$url,
+                        array(
+                            'cookies' => $this->cookieJar,
+                        )
+                    );
+                    $tables = self::strSimpleSingleHtml($response->getBody()->getContents(), 'table','table table-bordered text-center');  //获取所有table元素的内容
+
+                    dd($tables);
+                    $i++;
+                }else{
+                    continue;
+                }
+            }
+
             DB::transaction(function () use ($keywords) {
 
                 # 每用一个关键词，把这个词的状态改成1，视为已经用过

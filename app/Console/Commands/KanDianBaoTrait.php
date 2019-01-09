@@ -39,6 +39,32 @@ trait KanDianBaoTrait
         return $result;
     }
 
+    /**
+     * 获取页面全部内容,
+     * sort = 详情：比如plaintext（纯文本）等
+     */
+    public static function SimpleAllHtml($url,$sort)
+    {
+        $html = new Htmldom($url);
+        $result=$html->$sort;
+        return $result;
+    }
+
+    /**
+     * 获取页面全部标签,
+     * url=网站连接,
+     * dom = 标签:比如a.img等,
+     * sort = 详情：比如src,href,plaintext,class等
+     */
+    public static function SimpleSingleHtml($url,$dom,$sort)
+    {
+        $html = new Htmldom($url);
+        $result=[];
+        foreach($html->find($dom) as $element)
+            $result[]=$element->$sort;
+        return $result;
+    }
+
     //获取配置表数据
     public static function getConfig($config_type, $config_key)
     {
