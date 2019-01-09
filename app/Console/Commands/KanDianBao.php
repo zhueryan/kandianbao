@@ -165,10 +165,6 @@ class KanDianBao extends Command
         }catch (RequestException $e){
             echo $e->getMessage();
         }
-        exit();
-
-
-;
     }
 
     #开始爬取手淘APP数据
