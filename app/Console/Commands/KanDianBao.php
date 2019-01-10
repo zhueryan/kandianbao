@@ -47,7 +47,8 @@ class KanDianBao extends Command
     //每个关键词抓取的数据条数　从配置取
     private $keyword_catch_num = 600; //默认每个关键词抓取600条数据
     private $keywords = null;
-    private $cookieJar=null;
+    private $cookieJar = null;
+
     /**
      * Create a new command instance.
      *
@@ -59,7 +60,7 @@ class KanDianBao extends Command
 //        $this->upper_limit = self::getConfig('kandianbao', 'upper_limit')->config_value ?: 600;
 //        $this->designArea = self::getConfig('kandianbao', 'area')->config_value;
         list($this->keywords, $this->keyword_num) = self::get_keyword_num();
-        $this->keyword_catch_num = self::getConfig('kandianbao','keyword_catch_num')->config_value;
+        $this->keyword_catch_num = self::getConfig('kandianbao', 'keyword_catch_num')->config_value;
     }
 
 
@@ -73,31 +74,31 @@ class KanDianBao extends Command
         echo "看店宝爬虫开始。。。\n";
 
         #请求参数
-        $client = new Client(['cookies' => true,'http_errors' => true,
-            'headers' => ['User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.139 Safari/537.36',
-            'Content-Type' => 'application/x-www-form-urlencoded; charset=UTF-8',]]
+        $client = new Client(['cookies' => true, 'http_errors' => true,
+                'headers' => ['User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.139 Safari/537.36',
+                    'Content-Type' => 'application/x-www-form-urlencoded; charset=UTF-8',]]
         );
         //从数据库获取cookie
-        $cookie = self::getConfig('kandianbao','cookies');
-        if($cookie){
-            if(Carbon::now()->toDateString() == Carbon::parse($cookie->updated_at)->toDateString()){
+        $cookie = self::getConfig('kandianbao', 'cookies');
+        if ($cookie) {
+            if (Carbon::now()->toDateString() == Carbon::parse($cookie->updated_at)->toDateString()) {
                 //如果是今天更新的cookie 取手动更新的cookie
                 $this->set_cookies($cookie->config_value);
                 echo "获取cookie成功  cookie:{$cookie->config_value}\n";
-            }else{
+            } else {
                 echo "登录看店宝。。。\n";
                 $this->login($client);  //登录看店宝
             }
-        }else{
+        } else {
             echo "未添加cookie配置项";
             $this->login($client);  //登录看店宝
         }
 
         //抓取类型　STAPP 手淘APP　
-        $grasp_type  = self::getConfig('kandianbao', 'grasp_type')->config_value ;
-        $grasp = explode(',',$grasp_type);
+        $grasp_type = self::getConfig('kandianbao', 'grasp_type')->config_value;
+        $grasp = explode(',', $grasp_type);
 
-        if (in_array('STAPP',$grasp)) {
+        if (in_array('STAPP', $grasp)) {
             echo "开始爬取手淘APP数据\n";
             $this->start_stapp($client); //爬取手淘APP数据
         }
@@ -132,8 +133,8 @@ class KanDianBao extends Command
 
         $url = 'https://my.dianshangyi.com/user/login/';
         #登录账号
-        try{
-            $response = $client->request('POST', $url ,
+        try {
+            $response = $client->request('POST', $url,
                 array(
                     'cookies' => $this->cookieJar,
                     'form_params' => $user,
@@ -142,7 +143,7 @@ class KanDianBao extends Command
                     ],
                 )
             );
-            if(strstr($response->getBody()->getContents(),'验证码' )){  //再次请求　手动输入验证码
+            if (strstr($response->getBody()->getContents(), '验证码')) {  //再次请求　手动输入验证码
                 //人工验证码
 //                echo "请输入验证码:\n";
 //            $cap_url = 'https://my.kandianbao.com/validcode/captcha.gif';
@@ -157,7 +158,7 @@ class KanDianBao extends Command
 //            $str = str_replace(array("\r\n", "\r", "\n"), "", $s)
                 die("登录失败　请手动更新cookie\n");
             }
-            if(strstr($response->getBody()->getContents(),'退出' )){
+            if (strstr($response->getBody()->getContents(), '退出')) {
                 echo "电商易账号登录成功\n";
                 //更新cookie
                 $this->set_cookies($response->getHeader('Set-cookie')[0]);
@@ -165,26 +166,28 @@ class KanDianBao extends Command
 
 
             return $client;
-        }catch (RequestException $e){
+        } catch (RequestException $e) {
             echo $e->getMessage();
         }
     }
 
-    public function set_cookies($cookie){
+    public function set_cookies($cookie)
+    {
         ConfigModel::whereConfigType('kandianbao')
             ->whereConfigKey('cookies')
-            ->update(['config_value'=>$cookie]);
-        $cookie = explode(';',$cookie);
-        list($session,$session_value) = explode('=',$cookie[0]);
-        $domain = explode('=',$cookie[1])[1];
+            ->update(['config_value' => $cookie]);
+        $cookie = explode(';', $cookie);
+        list($session, $session_value) = explode('=', $cookie[0]);
+        $domain = explode('=', $cookie[1])[1];
         $this->cookieJar = CookieJar::fromArray([
             $session => $session_value,
         ], $domain);
     }
+
     #开始爬取手淘APP数据
     public function start_stapp(Client $client)
     {
-        $num_end =(int) ((int)$this->keyword_catch_num / 10) ;#批量采集 采集多少页
+        $num_end = (int)((int)$this->keyword_catch_num / 10);#批量采集 采集多少页
 
         foreach ($this->keywords as $keywords) {
             echo "抓取关键词:{$keywords->keyword}  抓取前{$num_end}页  \n";
@@ -205,6 +208,7 @@ class KanDianBao extends Command
             }
             //循环爬取每家店铺的数据
             $num = 1;
+            $already_exists = 0;
             $search = false;
             foreach ($pids as $pid) {
                 if ($pid) {
@@ -222,7 +226,7 @@ class KanDianBao extends Command
                     $tables2 = self::SimpleSingleHtml($content, 'table', 'table table-bordered');  //获取第二个table元素的内容
                     $shops = new Shops;
                     DB::beginTransaction();
-                    try{
+                    try {
                         //序号
                         $shops->num = $num;
                         // 店铺logo
@@ -231,6 +235,13 @@ class KanDianBao extends Command
                         $shops->shop_url = $tables->children(2)->children(1)->first_child()->href;
                         //旺旺ID
                         $shops->nick = $tables->children(2)->children(1)->first_child()->innertext;
+                        $exists = Shops::where('nick', $shops->nick)->exists();
+                        if ($exists) {
+                            $already_exists += 1;
+                            $shops = null;
+                            continue;
+                        }
+
                         //信用等级
                         $shops->credit = $tables->children(1)->children(1)->children(0)->src;
                         //店铺类型
@@ -261,19 +272,22 @@ class KanDianBao extends Command
                         $shops->save();
                         Keywords::whereId($keywords->id)->update(['state' => 1]);
                         DB::commit();
-                    }catch (Exception $e){
+                    } catch (Exception $e) {
                         DB::rollBack();
                     }
                     $num++;
                 } else {
                     continue;
                 }
-                if(!$search){
+                if (!$search) {
                     echo "关键词:{$keywords->keyword} 没有搜索到数据\n\n";
                     continue;
                 }
             }
+            --$num;
+            echo "关键词{$keywords->keyword} 共爬取了{ $num }家店铺　其中{$already_exists}店铺家系统已存在";
         }
+
         echo "爬虫执行完毕\n";
     }
 }
