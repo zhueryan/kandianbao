@@ -74,18 +74,18 @@ class KanDianBao extends Command
 
         #请求参数
         $client = new Client(['cookies' => true,'http_errors' => true,
-            'headers' => ['User-Agent' => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36',
+            'headers' => ['User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.139 Safari/537.36',
             'Content-Type' => 'application/x-www-form-urlencoded; charset=UTF-8',]]
         );
-        echo "登录看店宝。。。\n";
         //从数据库获取cookie
         $cookie = self::getConfig('kandianbao','cookies');
         if($cookie){
             if(Carbon::now()->toDateString() == Carbon::parse($cookie->updated_at)->toDateString()){
                 //如果是今天更新的cookie 取手动更新的cookie
                 $this->set_cookies($cookie->config_value);
-
+                echo "获取cookie成功  cookie:{$cookie->config_value}\n";
             }else{
+                echo "登录看店宝。。。\n";
                 $this->login($client);  //登录看店宝
             }
         }else{
@@ -108,7 +108,7 @@ class KanDianBao extends Command
     private function login(Client $client)
     {
         #请求登录地址
-        $login_url = 'https://my.dianshangyi.com/user/oauth/authorize?response_type=code&client_id=60c8f95b218af67f1eaf7664ef85a533&state=sFkh5R&redirect_uri=https://www.kandianbao.com/oauth/dsy/callback/&scope=me&next=https://www.kandianbao.com/';
+        $login_url = "https://my.dianshangyi.com/user/oauth/authorize?response_type=code&client_id=60c8f95b218af67f1eaf7664ef85a533&state=o5JgNQ&redirect_uri=https://www.kandianbao.com/oauth/dsy/callback/&scope=me&next=https://www.kandianbao.com/?s=dsy_login?";
 
         #请求页面
         $response = $client->get($login_url);
@@ -128,7 +128,6 @@ class KanDianBao extends Command
             "account" => "llc@jupin.net.cn",
             "password" => "jupin123",
             "csrf_token" => $authenticity_token,
-//            "next"=>'https://www.kandianbao.com/',
         ];  #登录信息
 
         $url = 'https://my.dianshangyi.com/user/login/';
@@ -143,8 +142,6 @@ class KanDianBao extends Command
                     ],
                 )
             );
-            //设置cookie
-            $this->set_cookies($response->getHeader('Set-cookie')[0]);
             if(strstr($response->getBody()->getContents(),'验证码' )){  //再次请求　手动输入验证码
                 //人工验证码
 //                echo "请输入验证码:\n";
@@ -163,7 +160,7 @@ class KanDianBao extends Command
             if(strstr($response->getBody()->getContents(),'退出' )){
                 echo "电商易账号登录成功\n";
                 //更新cookie
-
+                $this->set_cookies($response->getHeader('Set-cookie')[0]);
             }
 
 
