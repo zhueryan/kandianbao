@@ -238,6 +238,7 @@ class KanDianBao extends Command
                         $exists = Shops::where('nick', $shops->nick)->exists();
                         if ($exists) {
                             $already_exists += 1;
+                            $num++;
                             $shops = null;
                             continue;
                         }
@@ -285,7 +286,7 @@ class KanDianBao extends Command
                 }
             }
             --$num;
-            echo "关键词{$keywords->keyword} 共爬取了{ $num }家店铺　其中{$already_exists}店铺家系统已存在";
+            echo "关键词{$keywords->keyword} 共爬取了{ $num }家店铺　其中{$already_exists}家店铺系统已存在\n";
         }
 
         echo "爬虫执行完毕\n";
